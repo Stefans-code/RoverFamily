@@ -32,8 +32,11 @@ const state = {
     newsFilterRelevance: 'for-me',
     newsFilterCategory: 'all',
     isSpidLoggedIn: false,
+    touchpointSource: null,
     // Auth state
     currentUser: null,   // { name, email, anprProfile? }
+    // Dati inseriti nella preview pubblica (per gestione conflitto con ANPR)
+    previewProfile: null, // { quartiere, children: [...] }
 };
 
 // ─── User Account Helpers (localStorage) ─────────────────────────
@@ -1296,6 +1299,18 @@ function resetAiAdvisor() {
     const profile = state.familyProfile;
     const kidsText = profile.children.map(c => `${c.name} (${c.age} ${c.age === 1 ? 'anno' : 'anni'})`).join(', ');
     
+    // Testo specifico per il touchpoint di provenienza se presente
+    let touchpointContext = '';
+    if (state.touchpointSource && SOURCE_LABELS[state.touchpointSource]) {
+        const cleanText = SOURCE_LABELS[state.touchpointSource].text.replace(/<[^>]*>/g, '');
+        touchpointContext = `
+            <div class="touchpoint-badge-ai mt-2" style="font-size:0.75rem; color:var(--text-secondary); background:rgba(133, 92, 248, 0.08); padding:6px 10px; border-radius:6px; border-left:3px solid var(--accent-violet); display:flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-circle-info" style="color:var(--accent-violet);"></i>
+                <span>Provenienza: <em>${cleanText}</em></span>
+            </div>
+        `;
+    }
+    
     history.innerHTML = `
         <div class="ai-message ai-message-system speakable-card">
             <div class="message-icon"><i class="fa-solid fa-robot"></i></div>
@@ -1303,9 +1318,22 @@ function resetAiAdvisor() {
                 <p>Ciao! Sono l'<strong>Assistente AI di RoverFamily</strong>. Ho caricato i dati di Rovereto per il tuo profilo:</p>
                 <p>📍 Residente a <strong>${profile.quartiere}</strong><br>👶 <strong>${profile.children.length}</strong> figli: <em>${kidsText}</em></p>
                 <p>Come posso aiutarti? Clicca su uno dei suggerimenti o fammi una domanda sul welfare o sulle scuole.</p>
+                ${touchpointContext}
             </div>
         </div>
     `;
+    
+    // Aggiorna anche i chip dell'AI in base alla sorgente del touchpoint
+    const chipsContainer = document.getElementById('ai-chips-container');
+    if (chipsContainer) {
+        const source = state.touchpointSource || 'default';
+        const chips = SOURCE_CHIPS[source] || SOURCE_CHIPS['default'];
+        chipsContainer.innerHTML = chips.map(c => `
+            <button type="button" class="ai-chip" data-prompt="${c.prompt}">
+                ${c.label}
+            </button>
+        `).join('');
+    }
     
     // Add Click to speak
     const msgCard = history.querySelector('.ai-message');
@@ -1973,7 +2001,99 @@ function initQuickPreviewForm() {
         if (!ages.length) { alert('Inserisci almeno un\'età valida (0-6 anni). Es: 1, 4'); return; }
         const stats = computePreviewStats(quartiere, ages);
         renderPreviewResult(quartiere, ages, stats);
+        // Memorizza la preview per gestire eventuale conflitto con ANPR
+        state.previewProfile = {
+            quartiere,
+            children: ages.map((a, i) => ({ name: `Figlio ${i+1}`, age: a }))
+        };
     });
+}
+
+// ─── Confronto preview ↔ ANPR ────────────────────────────────────
+function profilesDiffer(a, b) {
+    if (!a || !b) return false;
+    if ((a.quartiere || '').toLowerCase().trim() !== (b.quartiere || '').toLowerCase().trim()) return true;
+    const agesA = (a.children || []).map(c => c.age).sort((x,y) => x-y).join(',');
+    const agesB = (b.children || []).map(c => c.age).sort((x,y) => x-y).join(',');
+    return agesA !== agesB;
+}
+
+function formatProfileSummary(p) {
+    if (!p) return '';
+    const kids = (p.children || []).map(c => `${c.age}${c.age === 1 ? ' anno' : ' anni'}`).join(', ');
+    const n = (p.children || []).length;
+    return `<strong>${p.quartiere}</strong> · ${n} ${n === 1 ? 'figlio' : 'figli'} (${kids})`;
+}
+
+function showProfileConflictModal(anprProfile, previewProfile, onChoose) {
+    // Costruisci modale dinamica
+    const old = document.getElementById('profile-conflict-modal');
+    if (old) old.remove();
+
+    const overlay = document.createElement('div');
+    overlay.id = 'profile-conflict-modal';
+    overlay.className = 'auth-modal-overlay';
+    overlay.style.display = 'flex';
+
+    overlay.innerHTML = `
+        <div class="auth-modal-card glass-card" style="max-width:540px;">
+            <h3 style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                <i class="fa-solid fa-triangle-exclamation" style="color:var(--accent-rose);"></i>
+                Conferma il profilo famiglia
+            </h3>
+            <p class="text-secondary" style="font-size:0.9rem;margin-bottom:18px;">
+                I dati che arrivano da <strong>ANPR/SPID</strong> non coincidono con quelli inseriti in anteprima. Quale vuoi usare?
+            </p>
+
+            <div class="conflict-choice-grid">
+                <button type="button" class="conflict-choice-card" data-choice="anpr">
+                    <div class="conflict-choice-header">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>Dati ANPR (ufficiali)</span>
+                        <span class="conflict-badge">Consigliato</span>
+                    </div>
+                    <div class="conflict-choice-body">${formatProfileSummary(anprProfile)}</div>
+                    <div class="conflict-choice-note">Letti dalla tua identità SPID</div>
+                </button>
+
+                <button type="button" class="conflict-choice-card" data-choice="preview">
+                    <div class="conflict-choice-header">
+                        <i class="fa-solid fa-user-pen"></i>
+                        <span>I miei dati (anteprima)</span>
+                    </div>
+                    <div class="conflict-choice-body">${formatProfileSummary(previewProfile)}</div>
+                    <div class="conflict-choice-note">Inseriti manualmente nella preview</div>
+                </button>
+            </div>
+
+            <p class="text-xs text-muted mt-3" style="text-align:center;">
+                Se i dati ANPR sono sbagliati, contatta l'Ufficio Anagrafe per la rettifica.
+            </p>
+        </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('.conflict-choice-card').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const choice = btn.dataset.choice;
+            const chosen = choice === 'anpr'
+                ? JSON.parse(JSON.stringify(anprProfile))
+                : JSON.parse(JSON.stringify(previewProfile));
+            overlay.remove();
+            onChoose(chosen);
+        });
+    });
+
+    // ESC -> ANPR default
+    const escHandler = (ev) => {
+        if (ev.key === 'Escape') {
+            document.removeEventListener('keydown', escHandler);
+            overlay.remove();
+            onChoose(JSON.parse(JSON.stringify(anprProfile)));
+        }
+    };
+    document.addEventListener('keydown', escHandler);
 }
 
 // ── Deep link via URL params (QR code / IO / partner) ──────────
@@ -1987,14 +2107,52 @@ const SOURCE_LABELS = {
     'anagrafe':     { icon: 'fa-people-roof',          text: 'Hai registrato una nascita: scopri tutti i servizi e bonus che il Comune mette a disposizione.' },
 };
 
+const SOURCE_CHIPS = {
+    'pediatra': [
+        { label: '👶 Supporto neonati', prompt: 'Quali servizi di supporto per neonati ci sono a Rovereto?' },
+        { label: '🏥 Salute bambini', prompt: 'Quali sono gli avvisi o delibere del Comune sulla salute o sanità dei bambini?' },
+        { label: '🎒 Asili nido', prompt: 'Quali asili nido o scuole ci sono nel mio quartiere?' }
+    ],
+    'anagrafe': [
+        { label: '🍼 Bonus Bebè', prompt: 'Quali bonus e contributi spettano a un neonato?' },
+        { label: '📜 Registrazione nascita', prompt: 'Come funziona la dichiarazione di nascita all\'anagrafe di Rovereto?' },
+        { label: '🏫 Servizi neonati', prompt: 'Quali nidi accettano bambini piccoli sotto i 6 mesi?' }
+    ],
+    'consultorio': [
+        { label: '💶 Bonus e welfare', prompt: 'Quali bonus o agevolazioni di welfare sono attivi per le famiglie?' },
+        { label: '🏡 Servizi sociali', prompt: 'Quali servizi e consultori familiari ci sono a Rovereto?' },
+        { label: '🎭 Eventi bambini', prompt: 'Ci sono laboratori o eventi educativi per bambini a Rovereto?' }
+    ],
+    'biblioteca': [
+        { label: '📚 Letture 0-6 anni', prompt: 'Quali eventi o letture animate per bambini ci sono in biblioteca?' },
+        { label: '🎨 Eventi culturali', prompt: 'Quali eventi culturali per famiglie ci sono a Rovereto?' },
+        { label: '🌳 Parchi e giochi', prompt: 'Quali parchi giochi o aree verdi ci sono a Rovereto?' }
+    ],
+    'asilo': [
+        { label: '🏫 Asili nido', prompt: 'Quali asili nido ci sono nel mio quartiere?' },
+        { label: '🎟️ Buoni servizio', prompt: 'Come richiedere i buoni di servizio o il bonus nido?' },
+        { label: '📅 Novità Scuole', prompt: 'Quali sono le ultime novità delibere sulle scuole?' }
+    ],
+    'default': [
+        { label: '📅 Weekend', prompt: 'Consigliami un evento per questo weekend' },
+        { label: '🏫 Asili', prompt: 'Quali asili hanno posti liberi vicino a me?' },
+        { label: '💶 Bonus', prompt: 'Quali bonus spettano alla mia famiglia?' }
+    ]
+};
+
 function initFromUrlParams() {
     const p = new URLSearchParams(window.location.search);
     const from = (p.get('from') || '').toLowerCase();
     const q = p.get('q') || p.get('quartiere');
     const kidsStr = p.get('kids') || p.get('eta');
 
-    // Mostra banner se arrivi da un canale partner
+    // Mostra banner e salva in state/sessionStorage se arrivi da un canale partner
     if (from && SOURCE_LABELS[from]) {
+        state.touchpointSource = from;
+        try {
+            sessionStorage.setItem('roverfamily_touchpoint', from);
+        } catch(e) {}
+        
         const banner = document.getElementById('source-banner');
         const txt = document.getElementById('source-banner-text');
         if (banner && txt) {
@@ -2002,54 +2160,43 @@ function initFromUrlParams() {
             banner.querySelector('i').className = 'fa-solid ' + SOURCE_LABELS[from].icon;
             banner.style.display = 'flex';
         }
+    } else {
+        // Carica touchpoint da sessionStorage se presente (per non perdere contesto tra i refresh)
+        try {
+            state.touchpointSource = sessionStorage.getItem('roverfamily_touchpoint') || null;
+        } catch(e) {}
     }
 
-    // Pre-popola la preview (riprova finché il select ha le opzioni)
+    // Pre-popola la preview direttamente (le opzioni sono già caricate dopo l'await di loadAppData)
     if (q || kidsStr) {
-        let attempts = 0;
-        const tryFill = () => {
-            attempts++;
-            const sel = document.getElementById('qp-quartiere');
-            const inp = document.getElementById('qp-ages');
-            if (!sel || !inp) return false;
-            // Il select dev'essere già popolato con le opzioni dei quartieri
-            const hasOptions = sel.options.length > 1;
+        const sel = document.getElementById('qp-quartiere');
+        const inp = document.getElementById('qp-ages');
+        if (sel && inp) {
             if (q) {
-                if (!hasOptions) return false;
                 const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').trim();
                 const target = norm(q);
                 const match = Array.from(sel.options).find(o => norm(o.value) === target);
                 if (!match) {
-                    // Match parziale (es. "borgo" → "Borgo Sacco")
                     const partial = Array.from(sel.options).find(o => norm(o.value).includes(target) || target.includes(norm(o.value)));
                     if (partial) sel.value = partial.value;
                 } else {
                     sel.value = match.value;
                 }
-                // Trigger change event per altri listeners
                 sel.dispatchEvent(new Event('change', { bubbles: true }));
             }
             if (kidsStr) {
-                // Accetta sia virgola che punto come separatore
                 const clean = kidsStr.replace(/[^0-9,;.\s]/g, '').replace(/\./g, ',');
                 inp.value = clean;
             }
-            return true;
-        };
-        // Riprova ogni 200ms fino a 10 tentativi (2 sec max)
-        const tryInterval = setInterval(() => {
-            if (tryFill() || attempts >= 10) {
-                clearInterval(tryInterval);
-                // Auto-submit dopo che il fill è andato a buon fine
-                if (q && kidsStr) {
-                    setTimeout(() => {
-                        const form = document.getElementById('qp-form');
-                        if (form) form.requestSubmit();
-                    }, 300);
-                }
+            
+            // Auto-submit se abbiamo entrambi i parametri
+            if (q && kidsStr) {
+                setTimeout(() => {
+                    const form = document.getElementById('qp-form');
+                    if (form) form.requestSubmit();
+                }, 300);
             }
-        }, 200);
-        tryFill(); // prova anche subito
+        }
     }
 }
 
@@ -2130,8 +2277,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (hasSavedState && state.familyProfile && state.familyProfile.children && state.familyProfile.children.length > 0) {
         state.familyProfile.children.forEach(c => addChildRow(c.name, String(c.age)));
     } else {
-        addChildRow('Luca', '1');
-        addChildRow('Sofia', '4');
+        addChildRow();
     }
 
     // ── Initial routing ──────────────────────────────────────────
@@ -2439,7 +2585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (state.familyProfile && state.familyProfile.children && state.familyProfile.children.length > 0) {
             state.familyProfile.children.forEach(c => addChildRow(c.name, String(c.age)));
         } else {
-            addChildRow('Luca', '1');
+            addChildRow();
         }
     }
 
@@ -2557,18 +2703,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                         setTimeout(() => {
                             overlay.style.display = 'none';
                             const profileData = MOCK_SPID_PROFILES[profileKey];
-                            if (profileData) {
-                                state.familyProfile = JSON.parse(JSON.stringify(profileData));
+
+                            const finalize = (chosen) => {
+                                state.familyProfile = chosen;
+                                const sel = document.getElementById('setup-quartiere');
+                                if (sel) sel.value = state.familyProfile.quartiere;
+                                syncChildrenUI();
+                                showPanel('panel-dashboard');
+                                renderDashboard();
+                                resetAiAdvisor();
+                                saveStateToLocalStorage();
+                                // Pulisce la preview dopo la conferma
+                                state.previewProfile = null;
+                            };
+
+                            // Conflitto preview vs ANPR -> chiedi all'utente
+                            if (profileData && state.previewProfile && profilesDiffer(profileData, state.previewProfile)) {
+                                showProfileConflictModal(profileData, state.previewProfile, finalize);
+                            } else if (profileData) {
+                                finalize(JSON.parse(JSON.stringify(profileData)));
+                            } else {
+                                finalize(state.familyProfile);
                             }
-
-                            const sel = document.getElementById('setup-quartiere');
-                            if (sel) sel.value = state.familyProfile.quartiere;
-                            syncChildrenUI();
-
-                            showPanel('panel-dashboard');
-                            renderDashboard();
-                            resetAiAdvisor();
-                            saveStateToLocalStorage();
                         }, 600);
                     }
                 }, 500);
