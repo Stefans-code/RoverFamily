@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.egg-info/
+venv/
+.venv/
+
+# Local dev
+.tmp_*
+*.tmp
+*.log
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local Claude config (può contenere preferenze personali)
+.claude/
+
+# Open Data Trentino - file CSV grezzi troppo grandi per GitHub
+# (rigenerabili scaricandoli da https://dati.trentino.it; il file data.json
+#  contiene già il subset elaborato necessario all'app)
+territorio_polygon.csv
+territorio_line.csv
+usosuolo_view.csv
+isosec.csv

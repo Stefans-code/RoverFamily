@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RoverFamily — Portale Famiglie Comune di Rovereto</title>
+    <meta name="description" content="RoverFamily: il portale digitale del Comune di Rovereto per le famiglie con bambini 0-6 anni. Scopri asili, sussidi, eventi e novità comunali.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin=""/>
+
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="theme-dark font-normal">
+
+    <!-- AMBIENT BACKGROUND BLOBS -->
+    <div class="ambient-blobs" aria-hidden="true">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- ========================================================
+         TOP ACCESSIBILITY BAR
+    ======================================================== -->
+    <div class="accessibility-bar" id="accessibilityBar">
+        <div class="container accessibility-header-row">
+            <span class="accessibility-title" id="settingsSummaryText">
+                <i class="fa-solid fa-universal-access"></i> Accessibilità: <strong style="color:var(--accent-violet);">Caricamento...</strong>
+            </span>
+            <div class="header-voice-wave" id="headerVoiceWave">
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+                <span class="wave-bar"></span>
+            </div>
+            <button id="btnToggleSettings" class="btn-toggle-settings" aria-label="Apri impostazioni">
+                <i class="fa-solid fa-sliders"></i> Impostazioni <i class="fa-solid fa-chevron-down toggle-chevron" id="settingsChevron"></i>
+            </button>
+        </div>
+
+        <!-- Collapsible Settings Panel -->
+        <div class="settings-drawer-panel" id="settingsPanel" style="display: none;">
+            <div class="settings-grid-container">
+                <!-- Column 1: Theme -->
+                <div class="settings-col">
+                    <h4><i class="fa-solid fa-palette"></i> Tema Visivo</h4>
+                    <p class="settings-hint">Seleziona la modalità cromatica preferita.</p>
+                    <div class="theme-cards-wrapper">
+                        <div class="theme-card" id="themeCardLight" role="button" tabindex="0" aria-label="Tema Chiaro">
+                            <div class="theme-preview-box preview-light"><div class="preview-header"></div><div class="preview-body">A</div></div>
+                            <span>Chiaro</span>
+                        </div>
+                        <div class="theme-card" id="themeCardDark" role="button" tabindex="0" aria-label="Tema Scuro">
+                            <div class="theme-preview-box preview-dark"><div class="preview-header"></div><div class="preview-body">A</div></div>
+                            <span>Scuro</span>
+                        </div>
+                        <div class="theme-card" id="themeCardContrast" role="button" tabindex="0" aria-label="Alto Contrasto">
+                            <div class="theme-preview-box preview-contrast"><div class="preview-header"></div><div class="preview-body">A</div></div>
+                            <span>Contrasto</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Column 2: Font Size -->
+                <div class="settings-col">
+                    <h4><i class="fa-solid fa-text-height"></i> Dimensione Testo</h4>
+                    <p class="settings-hint">Regola la grandezza dei caratteri.</p>
+                    <div class="slider-control-group mt-3">
+                        <div class="slider-labels">
+                            <span class="text-xs">75%</span>
+                            <span class="slider-value-badge" id="fontSizeValText">100%</span>
+                            <span class="text-xs">130%</span>
+                        </div>
+                        <input type="range" id="sliderFontSize" class="range-slider" min="0.75" max="1.30" step="0.05" value="1.0" aria-label="Dimensione caratteri">
+                    </div>
+                    <button type="button" class="btn btn-small btn-violet mt-3" id="btnResetFontSize" style="align-self:flex-start;">
+                        <i class="fa-solid fa-rotate-left"></i> Ripristina
+                    </button>
+                </div>
+
+                <!-- Column 3: Voice -->
+                <div class="settings-col">
+                    <h4><i class="fa-solid fa-volume-high"></i> Sintesi Vocale</h4>
+                    <p class="settings-hint">Configura la lettura audio dei testi.</p>
+                    <div class="settings-switch-row mt-2">
+                        <span class="switch-label">Assistente Vocale:</span>
+                        <button type="button" id="btnVoiceToggle" class="btn-acc" aria-label="Attiva/disattiva voce">
+                            <i class="fa-solid fa-volume-xmark"></i> <span class="voice-status-text">Disattivato</span>
+                        </button>
+                    </div>
+                    <div class="settings-switch-row mt-2">
+                        <span class="switch-label">Leggi AI automaticamente:</span>
+                        <label class="switch-toggle">
+                            <input type="checkbox" id="chkVoiceAutoRead" checked>
+                            <span class="switch-slider"></span>
+                        </label>
+                    </div>
+                    <div class="form-group mt-2">
+                        <label for="voiceSelect" class="text-xs"><i class="fa-solid fa-language"></i> Voce Sintetica:</label>
+                        <select id="voiceSelect" class="select-small" aria-label="Seleziona voce">
+                            <option value="">-- Voce di Sistema --</option>
+                        </select>
+                    </div>
+                    <div class="voice-sliders-group mt-2">
+                        <div class="voice-slider-item">
+                            <span class="text-xs">Velocità: <strong id="voiceRateVal">1.0x</strong></span>
+                            <input type="range" id="sliderVoiceRate" class="range-slider" min="0.5" max="2.0" step="0.1" value="1.0">
+                        </div>
+                        <div class="voice-slider-item mt-2">
+                            <span class="text-xs">Volume: <strong id="voiceVolumeVal">100%</strong></span>
+                            <input type="range" id="sliderVoiceVolume" class="range-slider" min="0.0" max="1.0" step="0.1" value="1.0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         APP HEADER
+    ======================================================== -->
+    <header class="main-header">
+        <div class="container header-container">
+            <div class="logo-area" id="logoHome" style="cursor:pointer;">
+                <div class="logo-shield">
+                    <i class="fa-solid fa-people-roof"></i>
+                </div>
+                <div class="title-sub">
+                    <h1 class="portal-title">RoverFamily</h1>
+                    <span class="portal-subtitle">PA Digitale • Servizi per l'Infanzia 0-6 anni</span>
+                </div>
+            </div>
+            <div class="header-actions">
+                <div class="family-badge">
+                    <i class="fa-solid fa-award"></i> Comune di Rovereto
+                </div>
+                <div class="live-clock" id="liveClock">
+                    <i class="fa-regular fa-clock"></i> <span id="clockTime">--:--:--</span>
+                </div>
+                <!-- User avatar pill (visible when logged in) -->
+                <div class="user-pill" id="userPill" style="display:none;">
+                    <div class="user-avatar-sm"><i class="fa-solid fa-user"></i></div>
+                    <span id="userPillName">Utente</span>
+                </div>
+                <button class="btn btn-violet btn-small" id="btnHeaderLogin" style="display:none;">
+                    <i class="fa-solid fa-right-to-bracket"></i> Accedi
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================
+         MAIN CONTENT WRAPPER
+    ======================================================== -->
+    <main class="main-content container">
+
+        <!-- ==================================================
+             PANEL 0: LANDING / HOME PAGE
+        ================================================== -->
+        <section id="panel-landing" class="panel-page active">
+
+            <!-- HERO -->
+            <div class="hero-section">
+                <div class="hero-badge"><i class="fa-solid fa-shield-halved"></i> Portale Ufficiale PA Digitale</div>
+                <h2 class="hero-title">La tua famiglia al centro<br><span class="gradient-text">dei servizi di Rovereto</span></h2>
+                <p class="hero-desc">Accedi con SPID o CIE e scopri asili nido, sussidi, eventi culturali e novità comunali — tutti personalizzati per i tuoi figli, nel tuo quartiere.</p>
+                <div class="hero-actions">
+                    <button type="button" class="btn btn-violet btn-xl" id="btnLandingLogin">
+                        <i class="fa-solid fa-right-to-bracket"></i> Accedi o Registrati
+                    </button>
+                    <button type="button" class="btn btn-ghost btn-xl" id="btnLandingGuest">
+                        <i class="fa-solid fa-user-secret"></i> Continua come Ospite
+                    </button>
+                </div>
+                <div class="hero-stats mt-4">
+                    <div class="stat-pill"><i class="fa-solid fa-school"></i> <strong>12</strong> Strutture</div>
+                    <div class="stat-pill"><i class="fa-solid fa-euro-sign"></i> <strong>6</strong> Sussidi</div>
+                    <div class="stat-pill"><i class="fa-solid fa-calendar-days"></i> <strong>8+</strong> Eventi</div>
+                    <div class="stat-pill"><i class="fa-solid fa-users"></i> <strong>1.500+</strong> Famiglie</div>
+                </div>
+            </div>
+
+            <!-- SOURCE BANNER (mostrato quando si arriva da QR / IO / partner) -->
+            <div id="source-banner" class="source-banner" style="display:none;">
+                <i class="fa-solid fa-circle-info"></i>
+                <span id="source-banner-text">Stai arrivando da un canale partner.</span>
+            </div>
+
+            <!-- QUICK PREVIEW — pubblico, senza registrazione -->
+            <section class="quick-preview glass-card mt-4" id="quick-preview">
+                <div class="quick-preview-header">
+                    <div class="qp-badge"><i class="fa-solid fa-bolt"></i> Senza registrazione</div>
+                    <h3>Scopri in 30 secondi cosa ti spetta</h3>
+                    <p class="qp-subtitle">Inserisci due informazioni e vedi subito un'anteprima dei servizi attivi per la tua famiglia. Non serve SPID, non chiediamo dati personali.</p>
+                </div>
+
+                <form id="qp-form" class="quick-preview-form">
+                    <div class="qp-field">
+                        <label for="qp-quartiere"><i class="fa-solid fa-map-location-dot"></i> Il tuo quartiere</label>
+                        <select id="qp-quartiere" required>
+                            <option value="">-- Scegli --</option>
+                        </select>
+                    </div>
+                    <div class="qp-field">
+                        <label for="qp-ages"><i class="fa-solid fa-children"></i> Età dei tuoi figli</label>
+                        <input type="text" id="qp-ages" placeholder="Es. 1, 4" inputmode="numeric" autocomplete="off" required>
+                        <small class="qp-hint">Età separate da virgola (0-6 anni)</small>
+                    </div>
+                    <button type="submit" class="btn btn-violet btn-large qp-submit">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Mostrami l'anteprima
+                    </button>
+                </form>
+
+                <div id="qp-result" class="quick-preview-result" style="display:none;"></div>
+            </section>
+
+            <!-- SERVICES GRID -->
+            <div class="services-grid mt-4">
+                <div class="service-card border-violet">
+                    <div class="service-icon icon-violet"><i class="fa-solid fa-school"></i></div>
+                    <h3>Strutture Vicine</h3>
+                    <p>Asili nido e scuole dell'infanzia filtrati per età dei tuoi figli, con distanze calcolate dal tuo quartiere e mappa interattiva.</p>
+                    <div class="service-tag tag-violet">0–6 anni</div>
+                </div>
+                <div class="service-card border-rose">
+                    <div class="service-icon icon-rose"><i class="fa-solid fa-euro-sign"></i></div>
+                    <h3>Cosa Ti Spetta</h3>
+                    <p>Bonus Bebè, Voucher Nido, Fondo Famiglie Numerose e molto altro — spiegati in italiano semplice dall'AI, con testo ufficiale a portata di click.</p>
+                    <div class="service-tag tag-rose">Agevolazioni</div>
+                </div>
+                <div class="service-card border-cyan">
+                    <div class="service-icon icon-cyan"><i class="fa-solid fa-calendar-days"></i></div>
+                    <h3>Eventi per Famiglie</h3>
+                    <p>Laboratori didattici al MART, Casa Depero e Castello di Rovereto — con badge colorati per ogni figlio e prenotazione rapida.</p>
+                    <div class="service-tag tag-cyan">Cultura</div>
+                </div>
+                <div class="service-card border-emerald">
+                    <div class="service-icon icon-emerald"><i class="fa-solid fa-file-invoice"></i></div>
+                    <h3>Novità dal Comune</h3>
+                    <p>Delibere comunali su sicurezza scolastica, aree giochi e welfare — riassunte dall'AI in due righe chiare e filtrabili per categoria.</p>
+                    <div class="service-tag tag-emerald">Delibere</div>
+                </div>
+            </div>
+
+            <!-- HOW IT WORKS -->
+            <div class="how-section glass-card mt-4">
+                <h3 class="text-center" style="font-size:1.5rem; margin-bottom: 8px;">Come funziona</h3>
+                <p class="text-center text-secondary" style="margin-bottom:28px;">In tre passi, dalla registrazione alla dashboard personalizzata</p>
+                <div class="steps-row">
+                    <div class="step-item">
+                        <div class="step-num">1</div>
+                        <h4>Accedi con SPID o CIE</h4>
+                        <p>Usa la tua identità digitale per autenticarti in modo sicuro con i canali ufficiali della PA italiana.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step-item">
+                        <div class="step-num">2</div>
+                        <h4>Sincronizzazione ANPR</h4>
+                        <p>Il sistema recupera automaticamente la composizione del tuo nucleo familiare dall'anagrafe ministeriale.</p>
+                    </div>
+                    <div class="step-connector"></div>
+                    <div class="step-item">
+                        <div class="step-num">3</div>
+                        <h4>Dashboard Personalizzata</h4>
+                        <p>Accedi a tutti i servizi filtrati per i tuoi figli e il tuo quartiere, con l'assistente AI sempre disponibile.</p>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ==================================================
+             PANEL 1: AUTH (Login / Register)
+        ================================================== -->
+        <section id="panel-auth" class="panel-page" style="display:none;">
+            <div class="auth-page-layout">
+
+                <!-- LEFT: Branding column -->
+                <div class="auth-brand-col">
+                    <div class="auth-brand-logo">
+                        <i class="fa-solid fa-people-roof"></i>
+                    </div>
+                    <h2>Bentornato su<br><span class="gradient-text">RoverFamily</span></h2>
+                    <p>Accedi per vivere un'esperienza completamente personalizzata per la tua famiglia.</p>
+                    <div class="auth-brand-features">
+                        <div class="auth-feature"><i class="fa-solid fa-shield-halved" style="color:var(--accent-violet)"></i> Dati protetti e cifrati</div>
+                        <div class="auth-feature"><i class="fa-solid fa-sync" style="color:var(--accent-rose)"></i> Sincronizzazione ANPR automatica</div>
+                        <div class="auth-feature"><i class="fa-solid fa-bell" style="color:var(--accent-cyan)"></i> Promemoria personalizzati</div>
+                        <div class="auth-feature"><i class="fa-solid fa-robot" style="color:var(--accent-emerald)"></i> Assistente AI sempre disponibile</div>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-small mt-3" id="btnAuthBackToHome">
+                        <i class="fa-solid fa-arrow-left"></i> Torna alla Home
+                    </button>
+                </div>
+
+                <!-- RIGHT: Auth forms -->
+                <div class="auth-form-col glass-card">
+
+                    <!-- Tab switcher -->
+                    <div class="auth-tabs">
+                        <button type="button" class="auth-tab-btn active" id="authTabLogin" data-tab="auth-login">
+                            <i class="fa-solid fa-right-to-bracket"></i> Accedi
+                        </button>
+                        <button type="button" class="auth-tab-btn" id="authTabRegister" data-tab="auth-register">
+                            <i class="fa-solid fa-user-plus"></i> Registrati
+                        </button>
+                    </div>
+
+                    <!-- LOGIN form -->
+                    <div class="auth-form-pane active" id="auth-login">
+                        <div class="gov-auth-section">
+                            <p class="gov-auth-label"><i class="fa-solid fa-landmark"></i> Accesso PA Digitale</p>
+                            <div class="gov-buttons-row">
+                                <button type="button" class="btn-gov btn-spid" id="btn-login-spid">
+                                    <span class="spid-logo">spid</span> Entra con SPID
+                                </button>
+                                <button type="button" class="btn-gov btn-cie" id="btn-login-cie">
+                                    <i class="fa-solid fa-id-card"></i> Entra con CIE
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="auth-separator"><span>oppure accedi con email</span></div>
+
+                        <form id="form-login" class="standard-form">
+                            <div class="form-group">
+                                <label for="login-email"><i class="fa-solid fa-envelope"></i> Email</label>
+                                <input type="email" id="login-email" placeholder="nome@email.it" autocomplete="email">
+                            </div>
+                            <div class="form-group">
+                                <label for="login-password"><i class="fa-solid fa-lock"></i> Password</label>
+                                <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+                            </div>
+                            <div id="login-error" class="form-alert form-alert-error" style="display:none;"></div>
+                            <button type="submit" class="btn btn-violet btn-full mt-3">
+                                <i class="fa-solid fa-right-to-bracket"></i> Accedi
+                            </button>
+                            <p class="auth-switch-hint mt-3">Non hai un account? <button type="button" class="link-btn" id="switchToRegister">Registrati ora</button></p>
+                            <div class="auth-separator mt-3"><span>oppure</span></div>
+                            <button type="button" class="btn btn-ghost btn-full" id="btnGuestFromLogin">
+                                <i class="fa-solid fa-user-secret"></i> Continua come Ospite
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- REGISTER form -->
+                    <div class="auth-form-pane" id="auth-register" style="display:none;">
+                        <div class="gov-auth-section">
+                            <p class="gov-auth-label"><i class="fa-solid fa-landmark"></i> Registrazione rapida con PA Digitale</p>
+                            <div class="gov-buttons-row">
+                                <button type="button" class="btn-gov btn-spid" id="btn-register-spid">
+                                    <span class="spid-logo">spid</span> Registrati con SPID
+                                </button>
+                                <button type="button" class="btn-gov btn-cie" id="btn-register-cie">
+                                    <i class="fa-solid fa-id-card"></i> Registrati con CIE
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="auth-separator"><span>oppure crea un account manuale</span></div>
+
+                        <form id="form-register" class="standard-form">
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="reg-name"><i class="fa-solid fa-user"></i> Nome e Cognome</label>
+                                    <input type="text" id="reg-name" placeholder="Mario Rossi" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-email"><i class="fa-solid fa-envelope"></i> Email</label>
+                                    <input type="email" id="reg-email" placeholder="nome@email.it" required>
+                                </div>
+                            </div>
+                            <div class="form-row-2">
+                                <div class="form-group">
+                                    <label for="reg-password"><i class="fa-solid fa-lock"></i> Password</label>
+                                    <input type="password" id="reg-password" placeholder="min. 8 caratteri" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="reg-password2"><i class="fa-solid fa-lock"></i> Conferma Password</label>
+                                    <input type="password" id="reg-password2" placeholder="Ripeti password" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="reg-anpr-profile" style="color:var(--accent-rose); font-weight:700;">
+                                    <i class="fa-solid fa-users"></i> Collega profilo famiglia (facoltativo)
+                                </label>
+                                <select id="reg-anpr-profile">
+                                    <option value="">-- Nessun profilo ANPR (inserisci dati manualmente) --</option>
+                                    <option value="rossi">Famiglia Rossi (Borgo Sacco – 2 figli: 1 e 4 anni)</option>
+                                    <option value="bianchi">Famiglia Bianchi (Centro Storico – 1 figlio: 2 anni)</option>
+                                    <option value="verdi">Famiglia Verdi (Brione – 3 figli: 0, 3 e 5 anni)</option>
+                                    <option value="ferrari">Famiglia Ferrari (Lizzana – 2 figli: 2 e 6 anni)</option>
+                                </select>
+                            </div>
+                            <div id="register-error" class="form-alert form-alert-error" style="display:none;"></div>
+                            <div id="register-success" class="form-alert form-alert-success" style="display:none;"></div>
+                            <button type="submit" class="btn btn-rose btn-full mt-3">
+                                <i class="fa-solid fa-user-plus"></i> Crea Account
+                            </button>
+                            <p class="auth-switch-hint mt-3">Hai già un account? <button type="button" class="link-btn" id="switchToLogin">Accedi ora</button></p>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================================================
+             PANEL 2: PROFILE SETUP (Manual / SPID prefilled)
+        ================================================== -->
+        <section id="panel-setup" class="panel-page setup-container" style="display:none;">
+            <div class="glass-card p-5 border-accent setup-card">
+                <button type="button" class="btn-close-setup-modal" id="btn-close-setup-modal" style="display: none;" aria-label="Chiudi">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+
+                <div id="spid-status-badge" class="spid-status-badge" style="display:none;">
+                    <i class="fa-solid fa-shield-halved"></i> Profilo sincronizzato via SPID / ANPR
+                </div>
+
+                <div class="setup-header text-center">
+                    <h2 class="gradient-text" id="setup-title"><i class="fa-solid fa-id-card"></i> Configura il Profilo della Tua Famiglia</h2>
+                    <p id="setup-subtitle">Inserisci il quartiere di residenza e l'età dei tuoi figli (0-6 anni) per generare la tua dashboard personalizzata.</p>
+                </div>
+
+                <form id="setup-form" class="standard-form mt-4">
+                    <div class="form-group">
+                        <label for="setup-quartiere"><i class="fa-solid fa-map-location-dot"></i> Quartiere di residenza a Rovereto:</label>
+                        <select id="setup-quartiere" required>
+                            <option value="">-- Seleziona il tuo quartiere --</option>
+                        </select>
+                    </div>
+
+                    <div class="divider"></div>
+
+                    <div class="children-setup-section">
+                        <div class="children-header-row">
+                            <h3><i class="fa-solid fa-children"></i> I tuoi figli (0–6 anni)</h3>
+                            <button type="button" class="btn btn-violet btn-small" id="btn-add-child">
+                                <i class="fa-solid fa-plus"></i> Aggiungi Figlio
+                            </button>
+                        </div>
+                        <div id="children-list-container" class="mt-3"></div>
+                    </div>
+
+                    <div class="divider mt-4"></div>
+
+                    <div class="setup-actions-row mt-4">
+                        <button type="button" class="btn btn-ghost btn-large" id="btn-cancel-setup" style="display:none;">
+                            <i class="fa-solid fa-xmark"></i> Annulla
+                        </button>
+                        <button type="submit" class="btn btn-rose btn-large" id="btn-submit-setup" style="flex:1; min-width:200px;">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Genera la mia Dashboard
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- ==================================================
+             PANEL 3: DASHBOARD
+        ================================================== -->
+        <section id="panel-dashboard" class="panel-page" style="display:none;">
+
+            <!-- Dashboard header banner -->
+            <div class="dashboard-info-header glass-card">
+                <div class="dashboard-user-profile">
+                    <div class="profile-icon"><i class="fa-solid fa-house-chimney-user"></i></div>
+                    <div class="profile-details">
+                        <h2>La Dashboard della tua Famiglia</h2>
+                        <p id="dashboard-profile-summary">Residente a Borgo Sacco • 2 figli</p>
+                    </div>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                    <button class="btn btn-violet" id="btn-modify-profile">
+                        <i class="fa-solid fa-user-gear"></i> Modifica Profilo
+                    </button>
+                    <button class="btn btn-logout" id="btn-logout">
+                        <i class="fa-solid fa-right-from-bracket"></i> Disconnetti
+                    </button>
+                </div>
+            </div>
+
+            <!-- Dashboard tabbed layout with sidebar -->
+            <div class="dashboard-layout mt-4">
+
+                <!-- Main column: tabs -->
+                <div class="dashboard-main-col">
+                    <div class="dashboard-tabs">
+                        <button type="button" class="tab-btn active" data-tab="tab-home" aria-label="Home e Promemoria">
+                            <i class="fa-solid fa-house"></i> Home / Promemoria
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="tab-news" aria-label="Novità dal Comune">
+                            <i class="fa-solid fa-file-invoice"></i> Novità dal Comune
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="tab-structures" aria-label="Strutture Vicine">
+                            <i class="fa-solid fa-school"></i> Strutture Vicine
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="tab-subsidies" aria-label="Cosa Ti Spetta">
+                            <i class="fa-solid fa-euro-sign"></i> Cosa Ti Spetta
+                        </button>
+                        <button type="button" class="tab-btn" data-tab="tab-events" aria-label="Eventi">
+                            <i class="fa-solid fa-calendar-days"></i> Eventi
+                        </button>
+                    </div>
+
+                    <!-- Tab: HOME / Promemoria -->
+                    <div class="tab-content active" id="tab-home">
+                        <div class="glass-card sec-reminders border-rose">
+                            <div class="sec-title-row">
+                                <h3 class="color-rose"><i class="fa-solid fa-bell"></i> Promemoria per la Tua Famiglia</h3>
+                                <span class="sec-badge badge-rose">Scadenze & Info</span>
+                            </div>
+                            <p class="sec-desc">Avvisi personalizzati in base all'età dei tuoi figli e al quartiere.</p>
+                            <div class="reminders-list" id="reminders-list-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: NOVITÀ DAL COMUNE -->
+                    <div class="tab-content" id="tab-news">
+                        <div class="glass-card sec-news border-emerald">
+                            <div class="sec-title-row">
+                                <h3 class="color-emerald"><i class="fa-solid fa-file-invoice"></i> Novità dal Comune</h3>
+                                <span class="sec-badge badge-emerald">Delibere</span>
+                            </div>
+                            <p class="sec-desc">Atti amministrativi riassunti dall'AI in 2 righe semplici.</p>
+                            <div class="news-tabs-wrapper">
+                                <button type="button" class="news-tab-btn active" id="news-tab-for-me" data-relevance="for-me">
+                                    <i class="fa-solid fa-star"></i> Consigliate per te
+                                </button>
+                                <button type="button" class="news-tab-btn" id="news-tab-all" data-relevance="all">
+                                    <i class="fa-solid fa-list"></i> Tutte le novità
+                                </button>
+                            </div>
+                            <div class="news-filters-wrapper mt-3">
+                                <button type="button" class="news-filter-pill active" data-category="all">Tutte</button>
+                                <button type="button" class="news-filter-pill" data-category="scuole"><i class="fa-solid fa-school"></i> Scuole</button>
+                                <button type="button" class="news-filter-pill" data-category="mobilita"><i class="fa-solid fa-car-side"></i> Mobilità</button>
+                                <button type="button" class="news-filter-pill" data-category="aree-verdi"><i class="fa-solid fa-tree"></i> Parchi</button>
+                                <button type="button" class="news-filter-pill" data-category="welfare"><i class="fa-solid fa-hand-holding-dollar"></i> Welfare</button>
+                            </div>
+                            <div class="news-list mt-3" id="news-list-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: STRUTTURE VICINE -->
+                    <div class="tab-content" id="tab-structures">
+                        <div class="glass-card sec-structures border-rose">
+                            <div class="sec-title-row">
+                                <h3 class="color-rose"><i class="fa-solid fa-school"></i> Strutture Vicine</h3>
+                                <span class="sec-badge badge-rose">Mappa & Lista</span>
+                            </div>
+                            <p class="sec-desc">Asili nido e scuole dell'infanzia vicini a te, con distanze e contatti.</p>
+                            <div class="structures-layout mt-3">
+                                <div class="structures-list" id="structures-list-container"></div>
+                                <div class="structures-map-box">
+                                    <div id="dashboard-map"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: COSA TI SPETTA -->
+                    <div class="tab-content" id="tab-subsidies">
+                        <div class="glass-card sec-subsidies border-violet">
+                            <div class="sec-title-row">
+                                <h3 class="color-violet"><i class="fa-solid fa-euro-sign"></i> Cosa Ti Spetta</h3>
+                                <span class="sec-badge badge-violet">Agevolazioni</span>
+                            </div>
+                            <p class="sec-desc">Contributi e sussidi applicabili al tuo profilo, spiegati dall'AI.</p>
+                            <div class="subsidies-list mt-3" id="subsidies-list-container"></div>
+                        </div>
+                    </div>
+
+                    <!-- Tab: EVENTI -->
+                    <div class="tab-content" id="tab-events">
+                        <div class="glass-card sec-events border-cyan">
+                            <div class="sec-title-row">
+                                <h3 class="color-cyan"><i class="fa-solid fa-calendar-days"></i> Eventi per Famiglie</h3>
+                                <span class="sec-badge badge-cyan">Cultura & Didattica</span>
+                            </div>
+                            <p class="sec-desc">Attività nei poli culturali di Rovereto filtrati per età.</p>
+                            <div class="events-list-container mt-3" id="events-list-container"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar: AI Assistant -->
+                <div class="dashboard-sidebar-col">
+                    <div class="glass-card sec-ai-advisor border-violet">
+                        <div class="sec-title-row">
+                            <h3 class="color-violet"><i class="fa-solid fa-wand-magic-sparkles"></i> Assistente AI</h3>
+                            <div style="display:flex; gap:8px; align-items:center;">
+                                <button type="button" class="btn-clear-chat" id="btn-clear-chat" title="Cancella chat" aria-label="Cancella chat">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                                <span class="sec-badge badge-violet">Attivo</span>
+                            </div>
+                        </div>
+                        <p class="sec-desc" style="font-size:0.8rem; margin-bottom:12px;">Consulente virtuale per chiarimenti sui servizi.</p>
+                        <div class="ai-advisor-container">
+                            <div class="ai-chat-history" id="ai-chat-history" style="max-height:450px; min-height:320px;">
+                                <div class="ai-message ai-message-system speakable-card">
+                                    <div class="message-icon"><i class="fa-solid fa-robot"></i></div>
+                                    <div class="message-text">
+                                        <p>Ciao! Sono l'<strong>Assistente AI di RoverFamily</strong>. Ho analizzato i dati aperti del Comune di Rovereto per il tuo profilo.</p>
+                                        <p>Cosa desideri sapere oggi?</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="ai-chips-container mt-2" id="ai-chips-container">
+                                <button type="button" class="ai-chip" data-prompt="Consigliami un evento per questo weekend"><i class="fa-solid fa-calendar-day"></i> Weekend</button>
+                                <button type="button" class="ai-chip" data-prompt="Quali asili hanno posti liberi vicino a me?"><i class="fa-solid fa-school"></i> Asili</button>
+                                <button type="button" class="ai-chip" data-prompt="Quali bonus spettano alla mia famiglia?"><i class="fa-solid fa-euro-sign"></i> Bonus</button>
+                            </div>
+                            <form class="ai-input-form mt-2" id="ai-advisor-form">
+                                <input type="text" id="ai-advisor-input" placeholder="Chiedi all'AI..." aria-label="Domanda AI">
+                                <button type="button" class="btn-mic-input" id="btn-mic-input" title="Dettatura vocale" aria-label="Microfono">
+                                    <i class="fa-solid fa-microphone"></i>
+                                </button>
+                                <button type="submit" class="btn btn-violet btn-small" title="Invia" aria-label="Invia">
+                                    <i class="fa-solid fa-paper-plane"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================================
+         FOOTER
+    ======================================================== -->
+    <footer class="portal-footer">
+        <div class="container footer-content">
+            <div class="footer-left">
+                <p>© 2026 Comune di Rovereto — Area Innovazione PA & Politiche per l'Infanzia.</p>
+                <p class="text-xs">RoverFamily è una piattaforma sperimentale basata su dati aperti.</p>
+            </div>
+            <div class="footer-links">
+                <a href="#"><i class="fa-solid fa-shield"></i> Privacy</a>
+                <a href="#"><i class="fa-solid fa-universal-access"></i> Accessibilità</a>
+                <a href="#"><i class="fa-solid fa-circle-info"></i> Open Data</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- ========================================================
+         AUTHENTICATION MODAL (SPID / CIE chooser)
+    ======================================================== -->
+    <div id="auth-modal" class="auth-modal-overlay" style="display:none;">
+        <div class="auth-modal-card glass-card">
+            <button type="button" class="btn-close-auth-modal" id="btn-close-auth-modal" aria-label="Chiudi">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <!-- SPID IDP selector -->
+            <div id="spid-idp-selector" style="display:none;">
+                <h3 class="color-blue" style="display:flex; align-items:center; gap:8px;">
+                    <span class="spid-logo-small">spid</span> Scegli il tuo Identity Provider
+                </h3>
+                <p class="text-xs text-secondary mt-1">Seleziona il gestore delle tue credenziali SPID.</p>
+                <div class="idp-grid mt-3">
+                    <button type="button" class="idp-btn" data-idp="PosteID"><span style="color:#005cbb; font-weight:800;">PosteID</span></button>
+                    <button type="button" class="idp-btn" data-idp="LepidaID"><span style="color:#e21a1a; font-weight:800;">Lepida ID</span></button>
+                    <button type="button" class="idp-btn" data-idp="SielteID"><span style="color:#009944; font-weight:800;">SielteID</span></button>
+                    <button type="button" class="idp-btn" data-idp="InfoCert"><span style="color:#f39200; font-weight:800;">InfoCert ID</span></button>
+                    <button type="button" class="idp-btn" data-idp="ArubaID"><span style="color:#0079c1; font-weight:800;">Aruba ID</span></button>
+                </div>
+            </div>
+
+            <!-- SPID credentials form -->
+            <div id="spid-login-form" style="display:none;">
+                <h3 id="spid-provider-title" class="color-blue">PosteID</h3>
+                <p class="text-xs text-secondary">Inserisci le credenziali o scegli un profilo di test.</p>
+                <form id="form-spid-credentials" class="standard-form mt-3">
+                    <div class="form-group">
+                        <label for="spid-username">Username o Codice Fiscale:</label>
+                        <input type="text" id="spid-username" placeholder="mario.rossi@spid.it" value="mario.rossi@spid.it">
+                    </div>
+                    <div class="form-group mt-2">
+                        <label for="spid-password">Password:</label>
+                        <input type="password" id="spid-password" value="••••••••">
+                    </div>
+                    <div class="form-group mt-2 select-profile-group">
+                        <label for="spid-test-profile" style="color:var(--accent-rose); font-weight:bold;">
+                            <i class="fa-solid fa-users"></i> Profilo di Test (ANPR):
+                        </label>
+                        <select id="spid-test-profile" class="select-highlight">
+                            <option value="rossi">Famiglia Rossi (Borgo Sacco – 2 figli: 1 e 4 anni)</option>
+                            <option value="bianchi">Famiglia Bianchi (Centro Storico – 1 figlio: 2 anni)</option>
+                            <option value="verdi">Famiglia Verdi (Brione – 3 figli: 0, 3 e 5 anni)</option>
+                            <option value="ferrari">Famiglia Ferrari (Lizzana – 2 figli: 2 e 6 anni)</option>
+                        </select>
+                    </div>
+                    <div class="auth-actions mt-3">
+                        <button type="submit" class="btn btn-blue" style="width:100%;">
+                            <i class="fa-solid fa-circle-check"></i> Autorizza Invio Dati
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- CIE NFC scanner -->
+            <div id="cie-login-form" style="display:none;">
+                <h3 class="color-navy" style="display:flex; align-items:center; gap:8px;">
+                    <i class="fa-solid fa-id-card"></i> Carta d'Identità Elettronica (CIE)
+                </h3>
+                <p class="text-xs text-secondary">Accosta la CIE al lettore NFC e inserisci il PIN.</p>
+                <div class="cie-scanner-container mt-3">
+                    <div class="cie-card-graphic">
+                        <i class="fa-solid fa-id-card card-icon"></i>
+                        <span class="cie-text">REPUBBLICA ITALIANA</span>
+                        <div class="cie-chip"></div>
+                    </div>
+                    <div class="nfc-pulse-wave"></div>
+                </div>
+                <form id="form-cie-credentials" class="standard-form mt-3">
+                    <div class="form-group">
+                        <label for="cie-pin">PIN della Carta (8 cifre):</label>
+                        <input type="password" id="cie-pin" maxlength="8" value="12345678" placeholder="••••••••" style="text-align:center; letter-spacing:4px; font-weight:bold;">
+                    </div>
+                    <div class="form-group mt-2 select-profile-group">
+                        <label for="cie-test-profile" style="color:var(--accent-rose); font-weight:bold;">
+                            <i class="fa-solid fa-users"></i> Profilo di Test (ANPR):
+                        </label>
+                        <select id="cie-test-profile" class="select-highlight">
+                            <option value="rossi">Famiglia Rossi (Borgo Sacco – 2 figli: 1 e 4 anni)</option>
+                            <option value="bianchi">Famiglia Bianchi (Centro Storico – 1 figlio: 2 anni)</option>
+                            <option value="verdi">Famiglia Verdi (Brione – 3 figli: 0, 3 e 5 anni)</option>
+                            <option value="ferrari">Famiglia Ferrari (Lizzana – 2 figli: 2 e 6 anni)</option>
+                        </select>
+                    </div>
+                    <div class="auth-actions mt-3">
+                        <button type="submit" class="btn btn-navy" style="width:100%;">
+                            <i class="fa-solid fa-rss"></i> Trasmetti Dati CIE
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================
+         ANPR SYNC LOADING OVERLAY
+    ======================================================== -->
+    <div id="login-loading-overlay" class="login-loading-overlay" style="display:none;">
+        <div class="sync-loader-card glass-card text-center">
+            <div class="gov-logo-sync">
+                <i class="fa-solid fa-people-roof animate-pulse" style="font-size:2.5rem; color:var(--accent-rose);"></i>
+            </div>
+            <h3>Sincronizzazione ANPR in corso</h3>
+            <p class="text-xs text-secondary mt-1">Connessione sicura all'Anagrafe Nazionale della Popolazione Residente...</p>
+            <div class="sync-steps-list mt-4 text-left">
+                <div class="sync-step" id="step-auth">
+                    <span class="step-icon"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                    <span class="step-text">Verifica delle credenziali d'identità...</span>
+                </div>
+                <div class="sync-step pending" id="step-anpr">
+                    <span class="step-icon"><i class="fa-regular fa-circle"></i></span>
+                    <span class="step-text">Connessione ai server ANPR ministeriali...</span>
+                </div>
+                <div class="sync-step pending" id="step-family">
+                    <span class="step-icon"><i class="fa-regular fa-circle"></i></span>
+                    <span class="step-text">Estrazione dello stato di famiglia (0–6 anni)...</span>
+                </div>
+                <div class="sync-step pending" id="step-dashboard">
+                    <span class="step-icon"><i class="fa-regular fa-circle"></i></span>
+                    <span class="step-text">Configurazione della dashboard RoverFamily...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="app.js"></script>
+</body>
+</html>
